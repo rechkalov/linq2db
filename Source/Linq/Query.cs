@@ -104,7 +104,6 @@ namespace LinqToDB.Linq
 		#region Properties & Fields
 
 		public          bool              DoNotChache;
-		public          Query<T>          Next;
 		public readonly List<QueryInfo>   Queries = new List<QueryInfo>(1);
 		public          ISqlOptimizer     SqlOptimizer;
 
@@ -120,10 +119,7 @@ namespace LinqToDB.Linq
 
 		#region GetInfo
 
-		static          Query<T> _first;
 		static readonly object   _sync = new object();
-
-		const int CacheSize = 100;
 
 		public static Query<T> GetQuery(IDataContextInfo dataContextInfo, Expression expr)
 		{
@@ -164,12 +160,6 @@ namespace LinqToDB.Linq
 
 							throw;
 						}
-
-						if (!query.DoNotChache)
-						{
-							query.Next = _first;
-							_first = query;
-						}
 					}
 				}
 			}
@@ -179,35 +169,6 @@ namespace LinqToDB.Linq
 
 		static Query<T> FindQuery(IDataContextInfo dataContextInfo, Expression expr)
 		{
-			Query<T> prev = null;
-			var      n    = 0;
-
-			for (var query = _first; query != null; query = query.Next)
-			{
-				if (query.Compare(dataContextInfo.ContextID, dataContextInfo.MappingSchema, expr))
-				{
-					if (prev != null)
-					{
-						lock (_sync)
-						{
-							prev.Next  = query.Next;
-							query.Next = _first;
-							_first     = query;
-						}
-					}
-
-					return query;
-				}
-
-				if (n++ >= CacheSize)
-				{
-					query.Next = null;
-					return null;
-				}
-
-				prev = query;
-			}
-
 			return null;
 		}
 
@@ -515,15 +476,6 @@ namespace LinqToDB.Linq
 
 		#region Object Operations
 
-		static class ObjectOperation<T1>
-		{
-			public static readonly Dictionary<object,Query<int>>    Insert             = new Dictionary<object,Query<int>>();
-			public static readonly Dictionary<object,Query<object>> InsertWithIdentity = new Dictionary<object,Query<object>>();
-			public static readonly Dictionary<object,Query<int>>    InsertOrUpdate     = new Dictionary<object,Query<int>>();
-			public static readonly Dictionary<object,Query<int>>    Update             = new Dictionary<object,Query<int>>();
-			public static readonly Dictionary<object,Query<int>>    Delete             = new Dictionary<object,Query<int>>();
-		}
-
 		static ParameterAccessor GetParameter(IDataContext dataContext, SqlField field)
 		{
 			var exprParam = Expression.Parameter(typeof(Expression), "expr");
@@ -569,9 +521,9 @@ namespace LinqToDB.Linq
 
 			var key = new { dataContextInfo.MappingSchema.ConfigurationID, dataContextInfo.ContextID };
 
-			if (!ObjectOperation<T>.Insert.TryGetValue(key, out ei))
+			if (true)
 				lock (_sync)
-					if (!ObjectOperation<T>.Insert.TryGetValue(key, out ei))
+					if (true)
 					{
 						var sqlTable = new SqlTable<T>(dataContextInfo.MappingSchema);
 						var sqlQuery = new SelectQuery { QueryType = QueryType.Insert };
@@ -611,8 +563,6 @@ namespace LinqToDB.Linq
 						}
 
 						ei.SetNonQueryQuery();
-
-						ObjectOperation<T>.Insert.Add(key, ei);
 					}
 
 			return (int)ei.GetElement(null, dataContextInfo, Expression.Constant(obj), null);
@@ -631,9 +581,9 @@ namespace LinqToDB.Linq
 
 			var key = new { dataContextInfo.MappingSchema.ConfigurationID, dataContextInfo.ContextID };
 
-			if (!ObjectOperation<T>.InsertWithIdentity.TryGetValue(key, out ei))
+			if (true)
 				lock (_sync)
-					if (!ObjectOperation<T>.InsertWithIdentity.TryGetValue(key, out ei))
+					if (true)
 					{
 						var sqlTable = new SqlTable<T>(dataContextInfo.MappingSchema);
 						var sqlQuery = new SelectQuery { QueryType = QueryType.Insert };
@@ -670,8 +620,6 @@ namespace LinqToDB.Linq
 						}
 
 						ei.SetScalarQuery<object>();
-
-						ObjectOperation<T>.InsertWithIdentity.Add(key, ei);
 					}
 
 			return ei.GetElement(null, dataContextInfo, Expression.Constant(obj), null);
@@ -690,11 +638,11 @@ namespace LinqToDB.Linq
 
 			var key = new { dataContextInfo.MappingSchema.ConfigurationID, dataContextInfo.ContextID };
 
-			if (!ObjectOperation<T>.InsertOrUpdate.TryGetValue(key, out ei))
+			if (true)
 			{
 				lock (_sync)
 				{
-					if (!ObjectOperation<T>.InsertOrUpdate.TryGetValue(key, out ei))
+					if (true)
 					{
 						var fieldDic = new Dictionary<SqlField, ParameterAccessor>();
 						var sqlTable = new SqlTable<T>(dataContextInfo.MappingSchema);
@@ -788,8 +736,6 @@ namespace LinqToDB.Linq
 							ei.SetNonQueryQuery();
 						else
 							ei.MakeAlternativeInsertOrUpdate(sqlQuery);
-
-						ObjectOperation<T>.InsertOrUpdate.Add(key, ei);
 					}
 				}
 			}
@@ -851,9 +797,9 @@ namespace LinqToDB.Linq
 
 			var key = new { dataContextInfo.MappingSchema.ConfigurationID, dataContextInfo.ContextID };
 
-			if (!ObjectOperation<T>.Update.TryGetValue(key, out ei))
+			if (true)
 				lock (_sync)
-					if (!ObjectOperation<T>.Update.TryGetValue(key, out ei))
+					if (true)
 					{
 						var sqlTable = new SqlTable<T>(dataContextInfo.MappingSchema);
 						var sqlQuery = new SelectQuery { QueryType = QueryType.Update };
@@ -905,8 +851,6 @@ namespace LinqToDB.Linq
 						}
 
 						ei.SetNonQueryQuery();
-
-						ObjectOperation<T>.Update.Add(key, ei);
 					}
 
 			return (int)ei.GetElement(null, dataContextInfo, Expression.Constant(obj), null);
@@ -925,9 +869,9 @@ namespace LinqToDB.Linq
 
 			var key = new { dataContextInfo.MappingSchema.ConfigurationID, dataContextInfo.ContextID };
 
-			if (!ObjectOperation<T>.Delete.TryGetValue(key, out ei))
+			if (true)
 				lock (_sync)
-					if (!ObjectOperation<T>.Delete.TryGetValue(key, out ei))
+					if (true)
 					{
 						var sqlTable = new SqlTable<T>(dataContextInfo.MappingSchema);
 						var sqlQuery = new SelectQuery { QueryType = QueryType.Delete };
@@ -960,8 +904,6 @@ namespace LinqToDB.Linq
 						}
 
 						ei.SetNonQueryQuery();
-
-						ObjectOperation<T>.Delete.Add(key, ei);
 					}
 
 			return (int)ei.GetElement(null, dataContextInfo, Expression.Constant(obj), null);
