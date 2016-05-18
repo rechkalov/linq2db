@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 
+using JetBrains.Annotations;
+
 namespace LinqToDB.Data
 {
 	using System.Text;
@@ -46,17 +48,10 @@ namespace LinqToDB.Data
 			if (providerName     == null) throw new ArgumentNullException("providerName");
 			if (connectionString == null) throw new ArgumentNullException("connectionString");
 
-			var dataProvider =
-			(
-				from key in _dataProviders.Keys
-				where string.Compare(key, providerName, StringComparison.InvariantCultureIgnoreCase) == 0
-				select _dataProviders[key]
-			).FirstOrDefault();
+			IDataProvider dataProvider;
 
-			if (dataProvider == null)
-			{
-				throw new LinqToDBException("DataProvider with name '{0}' are not compatible.".Args(providerName));
-			}
+			if (!_dataProviders.TryGetValue(providerName, out dataProvider))
+				throw new LinqToDBException("DataProvider '{0}' not found.".Args(providerName));
 
 			InitConfig();
 
@@ -163,6 +158,14 @@ namespace LinqToDB.Data
 		{
 			get { return _onTrace; }
 			set { _onTrace = value ?? OnTraceInternal; }
+		}
+
+		private Action<TraceInfo> _onTraceConnection = OnTrace;
+		[JetBrains.Annotations.CanBeNull]
+		public  Action<TraceInfo>  OnTraceConnection
+		{
+			get { return _onTraceConnection;  }
+			set { _onTraceConnection = value; }
 		}
 
 		static void OnTraceInternal(TraceInfo info)
@@ -274,7 +277,7 @@ namespace LinqToDB.Data
 			}
 		}
 
-		readonly static List<Func<ConnectionStringSettings,IDataProvider>> _providerDetectors =
+		static readonly List<Func<ConnectionStringSettings,IDataProvider>> _providerDetectors =
 			new List<Func<ConnectionStringSettings,IDataProvider>>();
 
 		public static void AddProviderDetector(Func<ConnectionStringSettings,IDataProvider> providerDetector)
@@ -311,18 +314,12 @@ namespace LinqToDB.Data
 			}
 		}
 
-		static          bool   _isInitialized;
-		static readonly object _initSync = new object();
+		static int _isInitialized;
 
 		static void InitConfig()
 		{
-			if (!_isInitialized)
-				lock (_initSync)
-					if (!_isInitialized)
-					{
-						InitConnectionStrings();
-						_isInitialized = true;
-					}
+			if (Interlocked.Exchange(ref _isInitialized, 1) == 0)
+				InitConnectionStrings();
 		}
 
 		static readonly ConcurrentDictionary<string,IDataProvider> _dataProviders =
@@ -334,7 +331,7 @@ namespace LinqToDB.Data
 			if (dataProvider == null) throw new ArgumentNullException("dataProvider");
 
 			if (string.IsNullOrEmpty(dataProvider.Name))
-				throw new ArgumentException("dataProvider.Name cant be empty.", "dataProvider");
+				throw new ArgumentException("dataProvider.Name cannot be empty.", "dataProvider");
 
 			_dataProviders[providerName] = dataProvider;
 		}
@@ -468,6 +465,7 @@ namespace LinqToDB.Data
 			_configurations[configuration].ConnectionString = connectionString;
 		}
 
+		[Pure]
 		public static string GetConnectionString(string configurationString)
 		{
 			InitConfig();
@@ -591,9 +589,12 @@ namespace LinqToDB.Data
 			if (TraceSwitch.Level == TraceLevel.Off)
 				return Command.ExecuteNonQuery();
 
+			if (OnTraceConnection == null)
+				return Command.ExecuteNonQuery();
+
 			if (TraceSwitch.TraceInfo)
 			{
-				OnTrace(new TraceInfo
+				OnTraceConnection(new TraceInfo
 				{
 					BeforeExecute  = true,
 					TraceLevel     = TraceLevel.Info,
@@ -602,14 +603,15 @@ namespace LinqToDB.Data
 				});
 			}
 
+			var now = DateTime.Now;
+
 			try
 			{
-				var now = DateTime.Now;
 				var ret = Command.ExecuteNonQuery();
 
 				if (TraceSwitch.TraceInfo)
 				{
-					OnTrace(new TraceInfo
+					OnTraceConnection(new TraceInfo
 					{
 						TraceLevel      = TraceLevel.Info,
 						DataConnection  = this,
@@ -625,11 +627,12 @@ namespace LinqToDB.Data
 			{
 				if (TraceSwitch.TraceError)
 				{
-					OnTrace(new TraceInfo
+					OnTraceConnection(new TraceInfo
 					{
 						TraceLevel     = TraceLevel.Error,
 						DataConnection = this,
 						Command        = Command,
+						ExecutionTime  = DateTime.Now - now,
 						Exception      = ex,
 					});
 				}
@@ -643,9 +646,12 @@ namespace LinqToDB.Data
 			if (TraceSwitch.Level == TraceLevel.Off)
 				return Command.ExecuteScalar();
 
+			if (OnTraceConnection == null)
+				return Command.ExecuteScalar();
+
 			if (TraceSwitch.TraceInfo)
 			{
-				OnTrace(new TraceInfo
+				OnTraceConnection(new TraceInfo
 				{
 					BeforeExecute  = true,
 					TraceLevel     = TraceLevel.Info,
@@ -654,14 +660,15 @@ namespace LinqToDB.Data
 				});
 			}
 
+			var now = DateTime.Now;
+
 			try
 			{
-				var now = DateTime.Now;
 				var ret = Command.ExecuteScalar();
 
 				if (TraceSwitch.TraceInfo)
 				{
-					OnTrace(new TraceInfo
+					OnTraceConnection(new TraceInfo
 					{
 						TraceLevel     = TraceLevel.Info,
 						DataConnection = this,
@@ -676,11 +683,12 @@ namespace LinqToDB.Data
 			{
 				if (TraceSwitch.TraceError)
 				{
-					OnTrace(new TraceInfo
+					OnTraceConnection(new TraceInfo
 					{
 						TraceLevel     = TraceLevel.Error,
 						DataConnection = this,
 						Command        = Command,
+						ExecutionTime  = DateTime.Now - now,
 						Exception      = ex,
 					});
 				}
@@ -699,9 +707,12 @@ namespace LinqToDB.Data
 			if (TraceSwitch.Level == TraceLevel.Off)
 				return Command.ExecuteReader(commandBehavior);
 
+			if (OnTraceConnection == null)
+				return Command.ExecuteReader(commandBehavior);
+
 			if (TraceSwitch.TraceInfo)
 			{
-				OnTrace(new TraceInfo
+				OnTraceConnection(new TraceInfo
 				{
 					BeforeExecute  = true,
 					TraceLevel     = TraceLevel.Info,
@@ -710,14 +721,15 @@ namespace LinqToDB.Data
 				});
 			}
 
+			var now = DateTime.Now;
+
 			try
 			{
-				var now = DateTime.Now;
 				var ret = Command.ExecuteReader(commandBehavior);
 
 				if (TraceSwitch.TraceInfo)
 				{
-					OnTrace(new TraceInfo
+					OnTraceConnection(new TraceInfo
 					{
 						TraceLevel     = TraceLevel.Info,
 						DataConnection = this,
@@ -732,17 +744,23 @@ namespace LinqToDB.Data
 			{
 				if (TraceSwitch.TraceError)
 				{
-					OnTrace(new TraceInfo
+					OnTraceConnection(new TraceInfo
 					{
 						TraceLevel     = TraceLevel.Error,
 						DataConnection = this,
 						Command        = Command,
+						ExecutionTime  = DateTime.Now - now,
 						Exception      = ex,
 					});
 				}
 
 				throw;
 			}
+		}
+
+		public static void ClearObjectReaderCache()
+		{
+			CommandInfo.ClearObjectReaderCache();
 		}
 
 		#endregion
@@ -853,8 +871,6 @@ namespace LinqToDB.Data
 
 			return this;
 		}
-
-		public 
 
 		#endregion
 

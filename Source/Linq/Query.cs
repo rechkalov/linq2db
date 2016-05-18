@@ -846,7 +846,7 @@ namespace LinqToDB.Linq
 
 							sqlQuery.Where.Field(field).Equal.Expr(param.SqlParameter);
 
-							if (field.Nullable)
+							if (field.CanBeNull)
 								sqlQuery.IsParameterDependent = true;
 						}
 
@@ -899,7 +899,7 @@ namespace LinqToDB.Linq
 
 							sqlQuery.Where.Field(field).Equal.Expr(param.SqlParameter);
 
-							if (field.Nullable)
+							if (field.CanBeNull)
 								sqlQuery.IsParameterDependent = true;
 						}
 

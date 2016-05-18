@@ -11,7 +11,7 @@ using NUnit.Framework;
 // ReSharper disable ConvertToConstant.Local
 #endregion
 
-namespace Tests.Update
+namespace Tests.xUpdate
 {
 	using Model;
 
@@ -228,15 +228,17 @@ namespace Tests.Update
 		}
 
 		[Test, DataContextSource(
-			ProviderName.Informix, 
-			ProviderName.SqlCe, 
-			ProviderName.DB2, 
-			ProviderName.Firebird, 
-			ProviderName.Oracle,
+			ProviderName.Informix,
+			ProviderName.SqlCe,
+			ProviderName.DB2,
+			ProviderName.Firebird,
+			ProviderName.OracleNative,
+			ProviderName.OracleManaged,
 			ProviderName.PostgreSQL, 
-			ProviderName.MySql, 
-			ProviderName.SQLite, 
-			ProviderName.Access, 
+			ProviderName.MySql,
+			TestProvName.MariaDB,
+			ProviderName.SQLite,
+			ProviderName.Access,
 			ProviderName.SapHana)]
 		public void Update9(string context)
 		{
@@ -267,15 +269,17 @@ namespace Tests.Update
 		}
 
 		[Test, DataContextSource(
-			ProviderName.Informix, 
-			ProviderName.SqlCe, 
-			ProviderName.DB2, 
-			ProviderName.Firebird, 
-			ProviderName.Oracle,
-			ProviderName.PostgreSQL, 
-			ProviderName.MySql, 
-			ProviderName.SQLite, 
-			ProviderName.Access, 
+			ProviderName.Informix,
+			ProviderName.SqlCe,
+			ProviderName.DB2,
+			ProviderName.Firebird,
+			ProviderName.OracleNative,
+			ProviderName.OracleManaged,
+			ProviderName.PostgreSQL,
+			ProviderName.MySql,
+			TestProvName.MariaDB,
+			ProviderName.SQLite,
+			ProviderName.Access,
 			ProviderName.SapHana)]
 		public void Update10(string context)
 		{
@@ -317,6 +321,40 @@ namespace Tests.Update
 				//db.GetTable<LinqDataTypes2>().Update(_ => q.Contains(_), _ => new LinqDataTypes2 { GuidValue = _.GuidValue });
 
 				q.Update(_ => new LinqDataTypes2 { GuidValue = _.GuidValue });
+			}
+		}
+
+		[Test, DataContextSource(
+			ProviderName.SqlCe, ProviderName.SQLite, ProviderName.DB2, ProviderName.Informix,
+			ProviderName.Firebird, ProviderName.OracleNative, ProviderName.OracleManaged, ProviderName.PostgreSQL)]
+		public void Update12(string context)
+		{
+			using (var db = GetDataContext(context))
+			{
+				(
+					from p1 in db.Parent
+					join p2 in db.Parent on p1.ParentID equals p2.ParentID
+					where p1.ParentID < 3
+					select new { p1, p2 }
+				)
+				.Update(q => q.p1, q => new Parent { ParentID = q.p2.ParentID });
+			}
+		}
+
+		[Test, DataContextSource(
+			ProviderName.SqlCe, ProviderName.SQLite, ProviderName.DB2, ProviderName.Informix,
+			ProviderName.Firebird, ProviderName.OracleNative, ProviderName.OracleManaged, ProviderName.PostgreSQL)]
+		public void Update13(string context)
+		{
+			using (var db = GetDataContext(context))
+			{
+				(
+					from p1 in db.Parent
+					join p2 in db.Parent on p1.ParentID equals p2.ParentID
+					where p1.ParentID < 3
+					select new { p1, p2 }
+				)
+				.Update(q => q.p2, q => new Parent { ParentID = q.p1.ParentID });
 			}
 		}
 
@@ -485,7 +523,8 @@ namespace Tests.Update
 			ProviderName.DB2, 
 			ProviderName.Firebird, 
 			ProviderName.Informix, 
-			ProviderName.Oracle, 
+			ProviderName.OracleNative,
+			ProviderName.OracleManaged, 
 			ProviderName.PostgreSQL, 
 			ProviderName.SqlCe, 
 			ProviderName.SQLite, 
@@ -634,6 +673,87 @@ namespace Tests.Update
 				)
 				.Set(p => p.ParentID, p => db.Child.SingleOrDefault(c => c.ChildID == 11).ParentID)
 				.Update();
+			}
+		}
+
+		[Test, DataContextSource(
+			ProviderName.SQLite, ProviderName.Access, ProviderName.Informix, ProviderName.Firebird, ProviderName.PostgreSQL,
+			ProviderName.MySql, TestProvName.MariaDB, ProviderName.Sybase)]
+		public void UpdateIssue319Regression(string context)
+		{
+			using (var db = GetDataContext(context))
+			{
+				var id = 100500;
+				try
+				{
+					db.Insert(new Parent1()
+					{
+						ParentID = id
+					});
+
+					var query = db.GetTable<Parent1>()
+						.Where(_ => _.ParentID == id)
+						.Select(_ => new Parent1()
+						{
+							ParentID = _.ParentID
+						});
+
+					var queryResult = new Lazy<Parent1>(() => query.First());
+
+					var cnt = db.GetTable<Parent1>()
+						.Where(_ => _.ParentID == id && query.Count() > 0)
+						.Update(_ => new Parent1()
+						{
+							Value1 = queryResult.Value.ParentID
+						});
+
+					Assert.AreEqual(1, cnt);
+				}
+				finally
+				{
+					db.GetTable<Parent1>().Delete(_ => _.ParentID == id);
+				}
+			}
+		}
+
+		[Test, DataContextSource(ProviderName.DB2, ProviderName.Informix, ProviderName.Firebird, ProviderName.Sybase)]
+		public void UpdateIssue321Regression(string context)
+		{
+			using (var db = GetDataContext(context))
+			{
+				var id = 100500;
+
+				try
+				{
+					var value1 = 3000m;
+					var value2 = 13621m;
+					var value3 = 60;
+
+					db.Insert(new LinqDataTypes2()
+					{
+						ID = id,
+						MoneyValue = value1,
+						IntValue = value3
+					});
+
+					db.GetTable<LinqDataTypes2>()
+						.Update(_ => new LinqDataTypes2()
+						{
+							SmallIntValue = (short)(_.MoneyValue / (value2 / _.IntValue))
+						});
+
+					var dbResult = db.GetTable<LinqDataTypes2>()
+						.Where(_ => _.ID == id)
+						.Select(_ => _.SmallIntValue).First();
+
+					var expected = (short)(value1 / (value2 / value3));
+
+					Assert.AreEqual(expected, dbResult);
+				}
+				finally
+				{
+					db.GetTable<LinqDataTypes2>().Delete(c => c.ID == id);
+				}
 			}
 		}
 	}

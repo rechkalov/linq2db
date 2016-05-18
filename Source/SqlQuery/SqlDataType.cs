@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -214,7 +215,8 @@ namespace LinqToDB.SqlQuery
 
 			new TypeInfo(DataType.Variant,             -1,                    -1,                    -1,                      -1),
 			new TypeInfo(DataType.Xml,                 -1,                    -1,                    -1,                      -1),
-			new TypeInfo(DataType.Udt,                 -1,                    -1,                    -1,                      -1)
+			new TypeInfo(DataType.Udt,                 -1,                    -1,                    -1,                      -1),
+			new TypeInfo(DataType.BitArray,            -1,                    -1,                    -1,                      -1)
 		);
 
 		public static int GetMaxLength     (DataType dbType) { return _typeInfo[(int)dbType].MaxLength;      }
@@ -318,6 +320,7 @@ namespace LinqToDB.SqlQuery
 #if !SILVERLIGHT && !NETFX_CORE
 				case DataType.Xml              : return DbXml;
 #endif
+				case DataType.BitArray         : return DbBitArray;
 				case DataType.Udt              : return DbUdt;
 				case DataType.Date             : return DbDate;
 				case DataType.Time             : return DbTime;
@@ -328,7 +331,7 @@ namespace LinqToDB.SqlQuery
 			throw new InvalidOperationException();
 		}
 
-		public static bool CanBeNull(Type type)
+		public static bool TypeCanBeNull(Type type)
 		{
 			if (type.IsValueTypeEx() == false ||
 				type.IsGenericTypeEx() && type.GetGenericTypeDefinition() == typeof(Nullable<>)
@@ -402,6 +405,7 @@ namespace LinqToDB.SqlQuery
 #if !SILVERLIGHT && !NETFX_CORE
 		public static readonly SqlDataType DbXml            = new SqlDataType(DataType.Xml,            typeof(SqlXml),                 0,               0,  0);
 #endif
+		public static readonly SqlDataType DbBitArray       = new SqlDataType(DataType.BitArray,       typeof(BitArray),               0,               0,  0);
 		public static readonly SqlDataType DbUdt            = new SqlDataType(DataType.Udt,            typeof(Object),                 0,               0,  0);
 
 		public static readonly SqlDataType Boolean          = DbBoolean;
@@ -497,9 +501,9 @@ namespace LinqToDB.SqlQuery
 
 		#region ISqlExpression Members
 
-		public bool CanBeNull()
+		public bool CanBeNull
 		{
-			return false;
+			get { return false; }
 		}
 
 		public bool Equals(ISqlExpression other, Func<ISqlExpression,ISqlExpression,bool> comparer)

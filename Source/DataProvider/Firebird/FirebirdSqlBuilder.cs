@@ -13,7 +13,7 @@ namespace LinqToDB.DataProvider.Firebird
 	using SqlQuery;
 	using SqlProvider;
 
-	class FirebirdSqlBuilder : BasicSqlBuilder
+	public class FirebirdSqlBuilder : BasicSqlBuilder
 	{
 		public FirebirdSqlBuilder(ISqlOptimizer sqlOptimizer, SqlProviderFlags sqlProviderFlags, ValueToSqlConverter valueToSqlConverter)
 			: base(sqlOptimizer, sqlProviderFlags, valueToSqlConverter)
@@ -209,7 +209,7 @@ namespace LinqToDB.DataProvider.Firebird
 
 		protected override void BuildCreateTableNullAttribute(SqlField field, DefaulNullable defaulNullable)
 		{
-			if (!field.Nullable)
+			if (!field.CanBeNull)
 				StringBuilder.Append("NOT NULL");
 		}
 

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 
+using LinqToDB;
+
 using NUnit.Framework;
 
 namespace Tests.Linq
@@ -58,7 +60,7 @@ namespace Tests.Linq
 			LinqToDB.Common.Configuration.Linq.AllowMultipleQuery = false;
 		}
 
-		[Test, DataContextSource]
+		[Test, DataContextSource(ProviderName.Sybase)]
 		public void Test5(string context)
 		{
 			LinqToDB.Common.Configuration.Linq.AllowMultipleQuery = true;
@@ -67,7 +69,8 @@ namespace Tests.Linq
 				AreEqual(
 					from ch in    Child
 					orderby ch.ChildID
-					select    Parent.Where(p => p.ParentID == ch.Parent.ParentID).Select(p => p),
+					select    Parent.Where(p => p.ParentID == ch.Parent.ParentID).Select(p => p)
+					,
 					from ch in db.Child
 					orderby ch.ChildID
 					select db.Parent.Where(p => p.ParentID == ch.Parent.ParentID).Select(p => p));
